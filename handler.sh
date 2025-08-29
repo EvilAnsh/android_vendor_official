@@ -20,20 +20,34 @@ done
 
 # Clone/update repos
 for path in "${!DEVICE_REPOS[@]}"; do
-    url="${DEVICE_REPOS[$path]}"
+    entry="${DEVICE_REPOS[$path]}"
+    url=$(echo "$entry" | awk '{print $1}')
+    branch=$(echo "$entry" | awk '{print $2}')
+
     if [ ! -d "$path/.git" ]; then
         echo "Cloning $path..."
         mkdir -p "$(dirname "$path")"
-        git clone "$url" "$path"
+        if [ -n "$branch" ]; then
+            echo " -> Using branch: $branch"
+            git clone -b "$branch" "$url" "$path"
+        else
+            echo " -> Using remote default branch"
+            git clone "$url" "$path"
+        fi
     else
         echo "Updating $path..."
         pushd "$path" >/dev/null
-        git fetch origin
-        LOCAL_HEAD=$(git rev-parse HEAD)
-        REMOTE_HEAD=$(git rev-parse @{u} 2>/dev/null || echo "")
-        if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ] && [ -n "$REMOTE_HEAD" ]; then
-            git pull --rebase
+
+        # Fetch updates for specified branch
+        if [ -n "$branch" ]; then
+            git fetch origin "$branch"
+            git pull --rebase origin "$branch"
+        else
+         # follows whatever branch is already tracked
+            git fetch origin
+            git pull --rebase  
         fi
+
         popd >/dev/null
     fi
 done
